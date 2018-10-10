@@ -218,6 +218,7 @@ type
     {$IFDEF SUPPORTS_ANONYMOUS_METHODS}
     procedure Get(AHandler: TRestResponseHandlerFunc);overload;
     procedure Post(Content: TStream; AHandler: TRestResponseHandlerFunc);overload;
+    Procedure Post(Entity: TObject; AHandler: TRestResponseHandlerFunc);overload;
     procedure Put(Content: TStream; AHandler: TRestResponseHandlerFunc);overload;
     procedure Patch(Content: TStream; AHandler: TRestResponseHandlerFunc);overload;
     {$ENDIF}
@@ -227,7 +228,9 @@ type
     function Post<T>(Entity: TObject): T;overload;
     function Post<T>(Content: string): T;overload;
     function Put<T>(Entity: TObject): T;overload;
+    function Put<T>(Content: string): T;overload;
     function Patch<T>(Entity: TObject): T;overload;
+    function Patch<T>(Content: string): T;overload;
     {$ELSE}
     function Get(AListClass, AItemClass: TClass): TObject;overload;
     function Post(Adapter: IJsonListAdapter): TObject;overload;
@@ -633,6 +636,12 @@ begin
   FRestClient.DoRequestFunc(METHOD_GET, Self, AHandler);
 end;
 
+procedure TResource.Post(Entity: TObject; AHandler: TRestResponseHandlerFunc);
+begin
+  SetContent(Entity);
+  FRestClient.DoRequestFunc(METHOD_POST, Self, AHandler);
+end;
+
 procedure TResource.Post(Content: TStream; AHandler: TRestResponseHandlerFunc);
 begin
   Content.Position := 0;
@@ -692,8 +701,12 @@ end;
 function TResource.ContentRequest(Content: TStream; Method: TRequestMethod;
   AHandler: TRestResponseHandler): string;
 begin
-  Content.Position := 0;
-  FContent.CopyFrom(Content, Content.Size);
+  FContent.Clear;
+  if assigned(Content) then
+  begin
+    Content.Position := 0;
+    FContent.CopyFrom(Content, Content.Size);
+  end;
   Result := FRestClient.DoRequest(Method, Self, AHandler);
 end;
 
@@ -837,7 +850,6 @@ var
   vResponse: string;
 begin
   vResponse := Post(Content);
-
   if Trim(vResponse) <> '' then
     Result := TJsonUtil.UnMarshal<T>(vResponse)
   else
@@ -858,6 +870,17 @@ begin
     Result := Default(T);
 end;
 
+function TResource.Put<T>(Content: string): T;
+var
+  vResponse: string;
+begin
+  vResponse := Put(Content);
+  if Trim(vResponse) <> '' then
+    Result := TJsonUtil.UnMarshal<T>(vResponse)
+  else
+    Result := Default(T);
+end;
+
 function TResource.Patch<T>(Entity: TObject): T;
 var
   vResponse: string;
@@ -871,6 +894,18 @@ begin
   else
     Result := Default(T);
 end;
+
+function TResource.Patch<T>(Content: string): T;
+var
+  vResponse: string;
+begin
+  vResponse := Patch(Content);
+  if Trim(vResponse) <> '' then
+    Result := TJsonUtil.UnMarshal<T>(vResponse)
+  else
+    Result := Default(T);
+end;
+
 {$ELSE}
 function TResource.Get(AListClass, AItemClass: TClass): TObject;
 var
